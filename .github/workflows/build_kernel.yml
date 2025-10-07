@@ -1,4 +1,4 @@
-name: Kernel Compilation
+name: Build_Kernel Compilation
 
 on:
   workflow_dispatch:
