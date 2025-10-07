@@ -1,4 +1,5 @@
 #!/bin/bash
+export TERM=xterm
 
 export RDIR="$(pwd)"
 export ARCH=arm64
@@ -7,6 +8,7 @@ export PLATFORM_VERSION=12
 export ANDROID_MAJOR_VERSION=s
 
 # Install requirements
+echo "[i] Installing build requirements..."
 if [ ! -f ".requirements" ]; then
     echo "[i] Installing build requirements..."
     sudo apt update && sudo apt install -y \
@@ -52,6 +54,11 @@ check_toolchains() {
 # Initialize KSU next
 echo "[i] Initializing KernelSU submodule..."
 git submodule init && git submodule update
+
+# Build with skipped menuconfig
+echo "[i] Starting kernel build..."
+make O=out ARCH=arm64 a04s_defconfig
+make O=out ARCH=arm64 -j$(nproc)
 
 # Create output directory
 if [ ! -d "${RDIR}/out" ]; then
