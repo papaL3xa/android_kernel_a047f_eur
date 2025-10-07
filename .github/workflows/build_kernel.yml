@@ -1,0 +1,93 @@
+name: Kernel Compilation
+
+on:
+  workflow_dispatch:
+    inputs:      
+      tag:
+        description: 'Release Tag'
+        required: true
+        default: 'dev'
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+
+    steps:
+    - name: Checkout source with submodules
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 1
+        submodules: recursive
+
+    - name: Set up build environment
+      run: |
+        sudo apt update -y
+        sudo apt install -y \
+          device-tree-compiler lz4 xz-utils zlib1g-dev \
+          openjdk-17-jdk gcc g++ python3 python-is-python3 \
+          p7zip-full android-sdk-libsparse-utils erofs-utils \
+          default-jdk git gnupg flex bison gperf build-essential \
+          zip curl libc6-dev libncurses-dev libx11-dev libreadline-dev \
+          libgl1-mesa-dev python3-markdown libxml2-utils \
+          xsltproc bc libtinfo6 libssl-dev libelf-dev kmod openssl \
+          cpio pahole tofrodos libncurses5-dev \
+          rsync git-core ccache --fix-missing
+
+    - name: Install libtinfo5
+      run: |
+        wget -q http://security.ubuntu.com/ubuntu/pool/universe/n/ncurses/libtinfo5_6.3-2ubuntu0.1_amd64.deb
+        sudo dpkg -i libtinfo5_6.3-2ubuntu0.1_amd64.deb
+        rm -f libtinfo5_6.3-2ubuntu0.1_amd64.deb
+
+    - name: Set environment variables
+      run: |
+        echo "BUILD_KERNEL_VERSION=${{ github.event.inputs.tag }}" >> $GITHUB_ENV
+        echo "RDIR=$(pwd)" >> $GITHUB_ENV
+
+    - name: Setup Git
+      run: |
+        git config --global user.email "action@github.com"
+        git config --global user.name "GitHub Action"
+
+    - name: Compile Kernel
+      run: |
+        chmod +x build_kernel.sh
+        bash build_kernel.sh
+
+    - name: List build artifacts
+      run: |
+        echo "Build directory contents:"
+        ls -la build/
+        echo "Output directory contents:"
+        ls -la out/arch/arm64/boot/ || echo "No output directory"
+
+    - name: Upload Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: FlameKernel KernelSU-Next-SM-A047F-${{ github.event.inputs.tag }}
+        path: build/*.tar
+        retention-days: 30
+
+    - name: Create release
+      uses: ncipollo/release-action@v1
+      with:
+        tag: ${{ github.event.inputs.tag }}
+        name: "KernelSU Next SM-A047F ${{ github.event.inputs.tag }}"
+        draft: false
+        prerelease: false
+        token: ${{ secrets.GITHUB_TOKEN }}
+        artifacts: "build/*.tar"
+        body: |
+          ## KernelSU Next for Samsung A04s (SM-A047F)
+          
+          **Build Details:**
+          - Commit SHA: ${{ github.sha }}
+          - Build Date: $(date -u)
+          - Kernel Version: ${{ github.event.inputs.tag }}
+          
+          **Features:**
+          - Built with KernelSU Next
+          - ARM64 architecture
+          
+          **Installation:**
+          Flash via Odin or custom recovery
